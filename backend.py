@@ -129,34 +129,77 @@ async def serve_sw():
     raise HTTPException(status_code=404, detail="Service Worker bulunamadı")
 
 
+def get_base_ydl_opts() -> Dict[str, Any]:
+    """Render ve bulut sunucularındaki 'Sign in to confirm you are not a bot' engelini asan temel yt-dlp ayarlari."""
+    opts: Dict[str, Any] = {
+        "quiet": True,
+        "no_warnings": True,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "ios"]
+            }
+        },
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+    }
+
+    # Çerez (cookies) dosyasi veya ortam degiskeni varsa kullan
+    cookie_path = os.path.join(BASE_DIR, "cookies.txt")
+    if os.path.exists(cookie_path):
+        opts["cookiefile"] = cookie_path
+    elif "YOUTUBE_COOKIES" in os.environ and os.environ["YOUTUBE_COOKIES"].strip():
+        cfile = os.path.join(tempfile.gettempdir(), "render_cookies.txt")
+        with open(cfile, "w", encoding="utf-8") as f:
+            f.write(os.environ["YOUTUBE_COOKIES"])
+        opts["cookiefile"] = cfile
+
+    ffmpeg_bin = get_ffmpeg_path()
+    if os.path.exists(ffmpeg_bin):
+        opts["ffmpeg_location"] = os.path.dirname(ffmpeg_bin)
+
+    return opts
+
+
 @app.post("/api/info")
 async def get_video_info(req: VideoInfoRequest):
     url = req.url.strip()
     if not url:
         raise HTTPException(status_code=400, detail="URL boş olamaz")
 
-    ffmpeg_bin = get_ffmpeg_path()
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "extract_flat": False,
-    }
-    if os.path.exists(ffmpeg_bin):
-        ydl_opts["ffmpeg_location"] = os.path.dirname(ffmpeg_bin)
+    # Farkli istemci alternatiflerini sirayla dener (Bot korumasini 100% asmak icin)
+    client_attempts = [
+        ["android", "ios"],
+        ["ios"],
+        ["mweb", "web_safari"],
+        ["web", "android"]
+    ]
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            return {
-                "title": info.get("title", "YouTube Videosu"),
-                "channel": info.get("uploader", info.get("channel", "YouTube")),
-                "duration": info.get("duration", 0),
-                "duration_formatted": format_seconds(info.get("duration", 0)),
-                "thumbnail": info.get("thumbnail", "")
-            }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Video bilgisi alınamadı: {str(e)[:120]}")
+    last_error = None
+    for clients in client_attempts:
+        try:
+            ydl_opts = get_base_ydl_opts()
+            ydl_opts.update({
+                "skip_download": True,
+                "extract_flat": False,
+                "extractor_args": {"youtube": {"player_client": clients}}
+            })
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                return {
+                    "title": info.get("title", "YouTube Videosu"),
+                    "channel": info.get("uploader", info.get("channel", "YouTube")),
+                    "duration": info.get("duration", 0),
+                    "duration_formatted": format_seconds(info.get("duration", 0)),
+                    "thumbnail": info.get("thumbnail", "")
+                }
+        except Exception as e:
+            last_error = e
+            continue
+
+    err_msg = str(last_error) if last_error else "Bilinmeyen hata"
+    raise HTTPException(status_code=400, detail=f"Video bilgisi alınamadı: {err_msg[:140]}")
 
 
 @app.post("/api/download")
@@ -184,14 +227,11 @@ async def download_video(req: DownloadRequest, background_tasks: BackgroundTasks
 
     raw_download_tmpl = os.path.join(temp_dir, "raw_video.%(ext)s")
 
-    ydl_opts: Dict[str, Any] = {
+    ydl_opts = get_base_ydl_opts()
+    ydl_opts.update({
         "outtmpl": raw_download_tmpl,
-        "quiet": True,
-        "no_warnings": True,
         "windowsfilenames": True,
-    }
-    if os.path.exists(ffmpeg_bin):
-        ydl_opts["ffmpeg_location"] = os.path.dirname(ffmpeg_bin)
+    })
 
     # Format yapılandırması
     if target_ext == "mp3":
@@ -208,7 +248,7 @@ async def download_video(req: DownloadRequest, background_tasks: BackgroundTasks
         if max_h:
             ydl_opts["format"] = f"bestvideo[height<={max_h}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={max_h}]+bestaudio/best[height<={max_h}]/best"
         else:
-            ydl_opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
+            ydl_opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best"
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
