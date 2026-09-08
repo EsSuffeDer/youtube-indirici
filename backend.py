@@ -129,6 +129,27 @@ async def serve_sw():
     raise HTTPException(status_code=404, detail="Service Worker bulunamadı")
 
 
+def normalize_cookies(text: str) -> str:
+    """Render veya kopyala-yapıştır ile bozulan (boşluk/yeni satır) Netscape çerezlerini onarır."""
+    if "\\n" in text and "\n" not in text:
+        text = text.replace("\\n", "\n")
+    if "\\t" in text and "\t" not in text:
+        text = text.replace("\\t", "\t")
+
+    lines = text.replace("\r\n", "\n").split("\n")
+    out = ["# Netscape HTTP Cookie File"]
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(None, 6)
+        if len(parts) >= 7:
+            out.append("\t".join(parts))
+        elif len(parts) == 6:
+            out.append("\t".join(parts) + "\t")
+    return "\n".join(out) + "\n"
+
+
 def get_base_ydl_opts() -> Dict[str, Any]:
     """Render ve bulut sunucularındaki 'Sign in to confirm you are not a bot' engelini asan temel yt-dlp ayarlari."""
     opts: Dict[str, Any] = {
@@ -140,18 +161,27 @@ def get_base_ydl_opts() -> Dict[str, Any]:
         }
     }
 
-    # Çerez (cookies) dosyasi veya ortam degiskeni varsa kullan
-    has_cookies = False
+    # Çerez (cookies) dosyasi veya ortam degiskeni varsa normalize ederek kullan
     cookie_path = os.path.join(BASE_DIR, "cookies.txt")
     if os.path.exists(cookie_path):
-        opts["cookiefile"] = cookie_path
-        has_cookies = True
+        try:
+            with open(cookie_path, "r", encoding="utf-8", errors="ignore") as f:
+                ccontent = f.read()
+            cfile = os.path.join(tempfile.gettempdir(), "fixed_cookies.txt")
+            with open(cfile, "w", encoding="utf-8") as f:
+                f.write(normalize_cookies(ccontent))
+            opts["cookiefile"] = cfile
+        except Exception:
+            opts["cookiefile"] = cookie_path
     elif "YOUTUBE_COOKIES" in os.environ and os.environ["YOUTUBE_COOKIES"].strip():
-        cfile = os.path.join(tempfile.gettempdir(), "render_cookies.txt")
-        with open(cfile, "w", encoding="utf-8") as f:
-            f.write(os.environ["YOUTUBE_COOKIES"])
-        opts["cookiefile"] = cfile
-        has_cookies = True
+        try:
+            ccontent = os.environ["YOUTUBE_COOKIES"].strip()
+            cfile = os.path.join(tempfile.gettempdir(), "render_cookies.txt")
+            with open(cfile, "w", encoding="utf-8") as f:
+                f.write(normalize_cookies(ccontent))
+            opts["cookiefile"] = cfile
+        except Exception:
+            pass
 
     # Bot engeline takılmamak için her zaman mobil istemcileri varsayılan yap
     opts["extractor_args"] = {
