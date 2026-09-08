@@ -153,13 +153,12 @@ def get_base_ydl_opts() -> Dict[str, Any]:
         opts["cookiefile"] = cfile
         has_cookies = True
 
-    # Eger cerez yoksa bot engeline takilmamak icin mobil istemcileri kullan
-    if not has_cookies:
-        opts["extractor_args"] = {
-            "youtube": {
-                "player_client": ["android", "ios"]
-            }
+    # Bot engeline takılmamak için her zaman mobil istemcileri varsayılan yap
+    opts["extractor_args"] = {
+        "youtube": {
+            "player_client": ["android", "ios"]
         }
+    }
 
     ffmpeg_bin = get_ffmpeg_path()
     if os.path.exists(ffmpeg_bin):
@@ -176,29 +175,12 @@ async def get_video_info(req: VideoInfoRequest):
 
     base_opts = get_base_ydl_opts()
 
-    # Çerez varsa direkt tek denemede tüm formatlar acik olarak al
-    if "cookiefile" in base_opts:
-        try:
-            ydl_opts = dict(base_opts)
-            ydl_opts.update({"skip_download": True, "extract_flat": False})
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                return {
-                    "title": info.get("title", "YouTube Videosu"),
-                    "channel": info.get("uploader", info.get("channel", "YouTube")),
-                    "duration": info.get("duration", 0),
-                    "duration_formatted": format_seconds(info.get("duration", 0)),
-                    "thumbnail": info.get("thumbnail", "")
-                }
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Video bilgisi alınamadı: {str(e)[:140]}")
-
-    # Çerez yoksa mobil alternatifleri sirayla dene
+    # İstemci alternatifleri: Android/iOS bot filtresine asla takılmaz
     client_attempts = [
         ["android", "ios"],
         ["ios"],
         ["mweb", "web_safari"],
-        ["web", "android"]
+        None
     ]
 
     last_error = None
@@ -208,8 +190,12 @@ async def get_video_info(req: VideoInfoRequest):
             ydl_opts.update({
                 "skip_download": True,
                 "extract_flat": False,
-                "extractor_args": {"youtube": {"player_client": clients}}
             })
+            if clients:
+                ydl_opts["extractor_args"] = {"youtube": {"player_client": clients}}
+            else:
+                ydl_opts.pop("extractor_args", None)
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 return {
