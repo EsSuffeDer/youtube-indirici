@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>YouTube Akıllı Parça İndirici</title>
+  
+  <!-- PWA Meta Etiketleri -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#12131d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="YT Kesici">
+
+  <style>
+    :root {
+      --bg: #12131d;
+      --card-bg: #181926;
+      --card-border: #25273c;
+      --input-bg: #1c1d2d;
+      --input-border: #2f3148;
+      --accent: #38b6ff;
+      --accent-hover: #1f93f6;
+      --green: #2ecc71;
+      --green-hover: #27ae60;
+      --text: #ffffff;
+      --text-muted: #9e9ea7;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Header */
+    header {
+      padding: 12px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    header p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Install Banner */
+    #install-banner {
+      display: none;
+      background: linear-gradient(135deg, #1f2a44, #18233a);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    #install-banner span {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    #install-banner button {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* Cards */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #d0d0dc;
+    }
+
+    /* URL Input Row */
+    .url-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"] {
+      background-color: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      padding: 0 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+      white-space: nowrap;
+      height: 44px;
+    }
+
+    .btn-secondary {
+      background-color: #24263a;
+      color: var(--text);
+    }
+    .btn-secondary:hover {
+      background-color: #2e314a;
+    }
+
+    .btn-primary {
+      background-color: #1f6feb;
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background-color: #388bfd;
+    }
+
+    /* Preview Card */
+    .preview-box {
+      display: none;
+      background-color: #1a1b28;
+      border: 1px solid #2b2d42;
+      border-radius: 10px;
+      padding: 12px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .preview-box.active {
+      display: flex;
+    }
+
+    .thumb-wrap {
+      width: 120px;
+      height: 68px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #12131d;
+      flex-shrink: 0;
+    }
+
+    .thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .preview-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow: hidden;
+    }
+
+    .preview-meta h3 {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .preview-meta p {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .preview-meta .badge {
+      display: inline-block;
+      font-size: 11px;
+      color: #4cd137;
+      font-weight: bold;
+    }
+
+    /* Time Range Grid */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #d0d0dc;
+    }
+
+    /* Presets */
+    .preset-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-preset {
+      padding: 6px 12px;
+      background: #24263a;
+      color: #d0d0dc;
+      border-radius: 6px;
+      font-size: 11px;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-preset:hover {
+      background: #2e314a;
+    }
+
+    .btn-preset.clear {
+      background: #341f27;
+      color: #ff7675;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Dropdowns */
+    select {
+      background-color: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      height: 44px;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    /* Action Button */
+    .btn-download {
+      width: 100%;
+      height: 54px;
+      background-color: var(--green);
+      color: #000;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 15px rgba(46, 204, 113, 0.2);
+      transition: all 0.2s;
+    }
+
+    .btn-download:hover {
+      background-color: var(--green-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-download:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Progress & Status */
+    .progress-box {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .progress-box.active {
+      display: flex;
+    }
+
+    .progress-bar-bg {
+      height: 8px;
+      background-color: var(--input-bg);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background-color: var(--accent);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-bar-fill.indeterminate {
+      width: 40%;
+      position: absolute;
+      animation: indeterminate 1.5s infinite linear;
+    }
+
+    @keyframes indeterminate {
+      0% { left: -40%; }
+      100% { left: 100%; }
+    }
+
+    .status-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* iOS Add to Home Hint */
+    .ios-hint {
+      display: none;
+      background: rgba(56, 182, 255, 0.08);
+      border: 1px dashed var(--accent);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #a0d8ef;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 12px; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .thumb-wrap { width: 100px; height: 56px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>✂️ YouTube Akıllı Parça İndirici</h1>
+      <p>Videonun tamamını indirmeden SADECE belirttiğiniz saniye aralığını çeker. Kotanızı korur!</p>
+    </header>
+
+    <!-- Android PWA Install Banner -->
+    <div id="install-banner">
+      <span>📱 Uygulamayı telefonuna yükle</span>
+      <button id="btn-pwa-install">YÜKLE</button>
+    </div>
+
+    <!-- iOS Add to Homescreen Prompt -->
+    <div id="ios-prompt" class="ios-hint">
+      💡 <b>iPhone Kullanıcısı:</b> Bu sayfayı uygulama yapmak için Safari'de alttaki <b>Paylaş</b> butonuna basıp <b>"Ana Ekrana Ekle"</b> diyebilirsiniz.
+    </div>
+
+    <!-- 1. BÖLÜM: URL VE ÖNİZLEME -->
+    <div class="card">
+      <div class="card-title">1. YouTube Video Linki</div>
+      <div class="url-row">
+        <input type="text" id="video-url" placeholder="https://www.youtube.com/watch?v=...">
+        <button class="btn btn-secondary" id="btn-paste">📋 Yapıştır</button>
+        <button class="btn btn-primary" id="btn-fetch">🔍 Bilgi Al</button>
+      </div>
+
+      <!-- Preview Box -->
+      <div class="preview-box" id="preview-card">
+        <div class="thumb-wrap">
+          <img id="thumb-img" src="" alt="Thumbnail">
+        </div>
+        <div class="preview-meta">
+          <h3 id="video-title">Video Başlığı</h3>
+          <p id="video-channel">Kanal: -</p>
+          <span class="badge" id="video-duration">Toplam Süre: -</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. BÖLÜM: ZAMAN ARALIĞI -->
+    <div class="card">
+      <div class="card-title">2. İndirilecek Zaman Aralığı (Saniye veya Dk:Sn)</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Başlangıç Zamanı:</label>
+          <input type="text" id="start-time" placeholder="Örn: 00:30 veya 30">
+        </div>
+        <div class="form-group">
+          <label>Bitiş Zamanı:</label>
+          <input type="text" id="end-time" placeholder="Örn: 02:15 veya 135">
+        </div>
+      </div>
+
+      <div class="preset-row">
+        <button class="btn-preset" onclick="setPreset('00:00', '00:30')">İlk 30 saniye</button>
+        <button class="btn-preset" onclick="setPreset('00:00', '01:00')">İlk 1 Dakika</button>
+        <button class="btn-preset clear" onclick="setPreset('', '')">Temizle (Tüm Video)</button>
+      </div>
+
+      <p class="hint" id="hint-text">ℹ️ İki kutuyu boş bırakırsanız videonun tamamı indirilir.</p>
+    </div>
+
+    <!-- 3. BÖLÜM: FORMAT VE ÇÖZÜNÜRLÜK -->
+    <div class="card">
+      <div class="card-title">3. İndirme Seçenekleri</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Format:</label>
+          <select id="select-format">
+            <option value="mp4" selected>MP4 Video</option>
+            <option value="mp3">MP3 Ses (Sadece Ses)</option>
+            <option value="mkv">MKV Video</option>
+            <option value="webm">WEBM Video</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Çözünürlük:</label>
+          <select id="select-res">
+            <option value="best" selected>En Yüksek Kalite (Otomatik En İyi)</option>
+            <option value="1080">1080p Full HD</option>
+            <option value="720">720p HD</option>
+            <option value="480">480p Standart</option>
+            <option value="360">360p Düşük Boyut</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. BÖLÜM: AKSİYON BUTONU VE İLERLEME -->
+    <div>
+      <button class="btn-download" id="btn-download">
+        🎬 TÜM VİDEOYU İNDİR
+      </button>
+
+      <div class="progress-box" id="progress-box">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill indeterminate" id="progress-fill"></div>
+        </div>
+        <div class="status-text" id="status-text">İşlem başlatılıyor...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // PWA Service Worker Kaydı
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+
+    // PWA Kurulum Butonu
+    let deferredPrompt;
+    const installBanner = document.getElementById('install-banner');
+    const btnInstall = document.getElementById('btn-pwa-install');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBanner.style.display = 'flex';
+    });
+    if (btnInstall) {
+      btnInstall.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          installBanner.style.display = 'none';
+        }
+      });
+    }
+
+    // iOS Safari Tespiti
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    if (isIOS && !isStandalone) {
+      document.getElementById('ios-prompt').style.display = 'block';
+    }
+
+    // UI Elementleri
+    const urlInput = document.getElementById('video-url');
+    const btnPaste = document.getElementById('btn-paste');
+    const btnFetch = document.getElementById('btn-fetch');
+    const previewCard = document.getElementById('preview-card');
+    const thumbImg = document.getElementById('thumb-img');
+    const videoTitle = document.getElementById('video-title');
+    const videoChannel = document.getElementById('video-channel');
+    const videoDuration = document.getElementById('video-duration');
+
+    const startTime = document.getElementById('start-time');
+    const endTime = document.getElementById('end-time');
+    const hintText = document.getElementById('hint-text');
+    const btnDownload = document.getElementById('btn-download');
+
+    const progressBox = document.getElementById('progress-box');
+    const statusText = document.getElementById('status-text');
+
+    // Buton metnini dinamik güncelle
+    function updateDownloadButton() {
+      const s = startTime.value.trim();
+      const e = endTime.value.trim();
+      if (s || e) {
+        btnDownload.innerHTML = '✂️ PARÇAYI İNDİR VE KES (Kotayı Korur)';
+        btnDownload.style.backgroundColor = '#2ecc71';
+        hintText.innerHTML = `🎯 Aralık: [${s || '00:00'} ➔ ${e || 'Son'}] (Videonun tamamı inmez)`;
+        hintText.style.color = '#4cd137';
+      } else {
+        btnDownload.innerHTML = '🎬 TÜM VİDEOYU İNDİR';
+        btnDownload.style.backgroundColor = '#38b6ff';
+        hintText.innerHTML = 'ℹ️ İki kutuyu boş bırakırsanız videonun tamamı indirilir.';
+        hintText.style.color = '#9e9ea7';
+      }
+    }
+
+    startTime.addEventListener('input', updateDownloadButton);
+    endTime.addEventListener('input', updateDownloadButton);
+
+    function setPreset(s, e) {
+      startTime.value = s;
+      endTime.value = e;
+      updateDownloadButton();
+    }
+
+    // Yapıştır
+    btnPaste.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          urlInput.value = text.trim();
+          fetchInfo();
+        }
+      } catch (err) {
+        alert('Panoya erişim izni verilmedi. Linki kutuya elle yapıştırabilirsiniz.');
+      }
+    });
+
+    // Video Bilgisi Getir
+    async function fetchInfo() {
+      const url = urlInput.value.trim();
+      if (!url) return;
+
+      btnFetch.disabled = true;
+      btnFetch.innerText = 'Aranıyor...';
+
+      try {
+        const res = await fetch('/api/info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        if (!res.ok) throw new Error((await res.json()).detail || 'Bilgi alınamadı');
+
+        const data = await res.json();
+        videoTitle.innerText = data.title;
+        videoChannel.innerText = 'Kanal: ' + data.channel;
+        videoDuration.innerText = 'Toplam Süre: ' + data.duration_formatted;
+        thumbImg.src = data.thumbnail;
+        previewCard.classList.add('active');
+      } catch (err) {
+        alert('Hata: ' + err.message);
+      } finally {
+        btnFetch.disabled = false;
+        btnFetch.innerText = '🔍 Bilgi Al';
+      }
+    }
+
+    btnFetch.addEventListener('click', fetchInfo);
+    urlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') fetchInfo();
+    });
+
+    // İndirme ve Kesme İşlemi
+    btnDownload.addEventListener('click', async () => {
+      const url = urlInput.value.trim();
+      if (!url) {
+        alert('Lütfen bir YouTube linki girin!');
+        return;
+      }
+
+      btnDownload.disabled = true;
+      progressBox.classList.add('active');
+      statusText.innerText = 'İndirme ve kesme işlemi hazırlanıyor...';
+      statusText.style.color = '#38b6ff';
+
+      const payload = {
+        url: url,
+        start_time: startTime.value.trim() || null,
+        end_time: endTime.value.trim() || null,
+        format: document.getElementById('select-format').value,
+        resolution: document.getElementById('select-res').value
+      };
+
+      try {
+        const response = await fetch('/api/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || 'İndirme sırasında bir hata oluştu.');
+        }
+
+        statusText.innerText = 'Dosya hazırlanıyor ve telefonunuza indiriliyor...';
+        statusText.style.color = '#f1c40f';
+
+        // Blob olarak dosyayı al ve indir
+        const blob = await response.blob();
+        let filename = 'video.mp4';
+        const disposition = response.headers.get('Content-Disposition');
+        if (disposition && disposition.indexOf('filename*=UTF-8\'\'') !== -1) {
+          filename = decodeURIComponent(disposition.split('filename*=UTF-8\'\'')[1]);
+        } else if (disposition && disposition.indexOf('filename=') !== -1) {
+          filename = disposition.split('filename=')[1].replace(/"/g, '');
+        }
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+
+        statusText.innerText = '✓ İndirme tamamlandı! Dosyanız kaydedildi.';
+        statusText.style.color = '#4cd137';
+
+      } catch (err) {
+        statusText.innerText = 'Hata: ' + err.message;
+        statusText.style.color = '#ff7675';
+      } finally {
+        btnDownload.disabled = false;
+      }
+    });
+
+    updateDownloadButton();
+  </script>
+</body>
+</html>
